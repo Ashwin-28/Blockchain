@@ -1,0 +1,154 @@
+/* Authenticate Page Styles */
+
+.auth-page .page-header {
+  margin-bottom: 3rem;
+}
+
+.auth-page .page-header h1 {
+  margin: 0.75rem 0 0.5rem;
+}
+
+.auth-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.auth-input,
+.auth-result {
+  padding: 2rem;
+}
+
+.auth-input h3,
+.auth-result h3 {
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Webcam */
+.webcam-container {
+  text-align: center;
+}
+
+.webcam {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+}
+
+.captured-container {
+  text-align: center;
+}
+
+.captured-img {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 1.5rem;
+}
+
+.capture-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+/* Result Display */
+.result-placeholder {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+}
+
+.placeholder-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.result-display {
+  text-align: center;
+  padding: 2rem;
+}
+
+.result-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  border-radius: 50%;
+  border: 2px solid;
+}
+
+.result-icon.success {
+  color: var(--accent-emerald);
+  border-color: var(--accent-emerald);
+}
+
+.result-icon.error {
+  color: var(--accent-ruby);
+  border-color: var(--accent-ruby);
+}
+
+.result-display h4 {
+  margin-bottom: 0.5rem;
+}
+
+.result-display p {
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+}
+
+.result-error {
+  text-align: center;
+  padding: 2rem;
+}
+
+.result-error h4 {
+  color: var(--accent-ruby);
+  margin-bottom: 0.5rem;
+}
+
+.result-error p {
+  color: var(--text-secondary);
+}
+
+/* Result Meta */
+.result-meta {
+  background: var(--bg-glass);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  text-align: left;
+}
+
+.meta-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+}
+
+.meta-item:not(:last-child) {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.meta-label {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.meta-value {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.85rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .auth-layout {
+    grid-template-columns: 1fr;
+  }
+}

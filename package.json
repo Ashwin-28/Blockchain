@@ -1,0 +1,60 @@
+{
+  "name": "decentralized-biometric-identity",
+  "version": "1.0.0",
+  "description": "Decentralized Biometric Identity Verification System using Blockchain, AI, and Fuzzy Commitment Scheme",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "compile": "truffle compile",
+    "migrate": "truffle migrate",
+    "migrate:reset": "truffle migrate --reset",
+    "migrate:sepolia": "truffle migrate --network sepolia",
+    "migrate:mainnet": "truffle migrate --network mainnet",
+    "test": "truffle test",
+    "test:coverage": "truffle run coverage",
+    "console": "truffle console",
+    "ganache": "ganache --port 8545 --networkId 1337 --accounts 10 --defaultBalanceEther 1000",
+    "lint:sol": "solhint 'contracts/**/*.sol'",
+    "clean": "rm -rf build/",
+    "backend": "cd backend && python app.py",
+    "frontend": "cd frontend && npm start",
+    "install:all": "npm install && cd frontend && npm install"
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "keywords": [
+    "blockchain",
+    "biometric",
+    "identity",
+    "ethereum",
+    "fuzzy-commitment",
+    "decentralized",
+    "dapp",
+    "smart-contract",
+    "facial-recognition",
+    "privacy"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@openzeppelin/test-helpers": "^0.5.16",
+    "@truffle/hdwallet-provider": "^2.1.15",
+    "chai": "^4.3.10",
+    "chai-as-promised": "^7.1.1",
+    "dotenv": "^16.3.1",
+    "ganache": "^7.9.1",
+    "mocha": "^10.2.0",
+    "solhint": "^4.0.0",
+    "truffle": "^5.11.5",
+    "truffle-plugin-verify": "^0.6.7"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0",
+    "ethers": "^6.16.0",
+    "web3": "^4.2.2"
+  }
+}
