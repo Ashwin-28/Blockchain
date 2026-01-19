@@ -2,9 +2,9 @@
 Biometric Engine Module
 
 Handles biometric feature extraction using:
-- CNN-based facial recognition (MobileNetV2)
+- DeepFace with FaceNet model for accurate facial recognition
 - Fingerprint and Iris fallbacks
-- Median-based quantization for secure hashing
+- L2-normalized embeddings for consistent comparison
 """
 
 import os
@@ -35,7 +35,16 @@ except ImportError:
     CV2_AVAILABLE = False
     print("⚠ OpenCV not installed")
 
-# Import TensorFlow with fallback
+# Import DeepFace for face recognition
+try:
+    from deepface import DeepFace
+    DEEPFACE_AVAILABLE = True
+    print("✓ DeepFace loaded for facial recognition")
+except ImportError:
+    DEEPFACE_AVAILABLE = False
+    print("⚠ DeepFace not installed. Install with: pip install deepface")
+
+# Import TensorFlow with fallback (used for fingerprint/iris)
 try:
     import tensorflow as tf
     from tensorflow import keras
@@ -46,78 +55,251 @@ except ImportError:
 
 
 class BiometricEngine:
-    """Biometric feature extraction and comparison engine."""
+    """Biometric feature extraction and comparison engine using DeepFace."""
     
-    def __init__(self, feature_dim: int = 128):
+    # ArcFace produces 512-dimensional embeddings (better accuracy)
+    # FaceNet produces 128-dimensional embeddings
+    ARCFACE_DIM = 512
+    FACENET_DIM = 128
+    
+    def __init__(self, feature_dim: int = 512):
         set_seeds()
         self.feature_dim = feature_dim
-        self.face_model = None
-        self._init_models()
+        # Use ArcFace for better accuracy (>70% requirement)
+        # Fallback to FaceNet512 if ArcFace fails, then FaceNet
+        self.face_model_name = 'ArcFace'  # Best accuracy: ArcFace > FaceNet512 > FaceNet
+        self.detector_backend = 'retinaface'  # Best detection: retinaface > mtcnn > opencv
+        self._warmup_deepface()
     
-    def _init_models(self):
-        """Initialize deep learning models"""
-        if TF_AVAILABLE:
+    def _warmup_deepface(self):
+        """Pre-load DeepFace model to avoid cold start delays"""
+        if DEEPFACE_AVAILABLE:
             try:
-                self.face_model = self._build_cnn()
+                # Try ArcFace first (best accuracy)
+                try:
+                    DeepFace.build_model('ArcFace')
+                    print(f"✓ DeepFace ArcFace model initialized (512D embeddings)")
+                    self.face_model_name = 'ArcFace'
+                    self.feature_dim = 512
+                except Exception:
+                    # Fallback to FaceNet512
+                    try:
+                        DeepFace.build_model('Facenet512')
+                        print(f"✓ DeepFace FaceNet512 model initialized (512D embeddings)")
+                        self.face_model_name = 'Facenet512'
+                        self.feature_dim = 512
+                    except Exception:
+                        # Fallback to FaceNet
+                        DeepFace.build_model('Facenet')
+                        print(f"✓ DeepFace FaceNet model initialized (128D embeddings)")
+                        self.face_model_name = 'Facenet'
+                        self.feature_dim = 128
+                
+                # Test detector backends in order of preference
+                test_image = np.zeros((224, 224, 3), dtype=np.uint8)
+                dummy_path = os.path.join(os.path.dirname(__file__), '..', 'uploads', '_warmup.jpg')
+                os.makedirs(os.path.dirname(dummy_path), exist_ok=True)
+                if CV2_AVAILABLE:
+                    cv2.imwrite(dummy_path, test_image)
+                
+                # Try detectors in order: retinaface > mtcnn > opencv
+                for detector in ['retinaface', 'mtcnn', 'opencv']:
+                    try:
+                        if os.path.exists(dummy_path):
+                            DeepFace.represent(
+                                img_path=dummy_path,
+                                model_name=self.face_model_name,
+                                detector_backend=detector,
+                                enforce_detection=False
+                            )
+                            self.detector_backend = detector
+                            print(f"✓ Using detector backend: {detector}")
+                            break
+                    except Exception:
+                        continue
+                
+                # Cleanup
+                if os.path.exists(dummy_path):
+                    os.remove(dummy_path)
             except Exception as e:
-                print(f"⚠ Could not initialize CNN: {e}")
-    
-    def _build_cnn(self):
-        """Build MobileNetV2-based feature extractor"""
-        if not TF_AVAILABLE: return None
-        try:
-            base_model = keras.applications.MobileNetV2(
-                input_shape=(224, 224, 3), 
-                include_top=False, 
-                weights='imagenet',
-                pooling='avg'
-            )
-            base_model.trainable = False
-            model = keras.Sequential([
-                base_model,
-                keras.layers.Dense(self.feature_dim, activation=None),
-                keras.layers.Lambda(lambda x: tf.math.l2_normalize(x, axis=1))
-            ])
-            print("✓ MobileNetV2 feature extractor initialized")
-            return model
-        except Exception as e:
-            print(f"⚠ CNN Build error: {e}")
-            return None
+                print(f"⚠ DeepFace warmup note: {e}")
 
     def extract_features(self, image_path: str, biometric_type: str = 'facial') -> Optional[np.ndarray]:
-        """Extract high-precision biometric features."""
-        if not CV2_AVAILABLE: return self._fallback_features(image_path)
-            
+        """Extract biometric features using DeepFace for facial recognition."""
+        
+        if biometric_type == 'facial':
+            return self._extract_facial_features(image_path)
+        elif biometric_type == 'fingerprint':
+            return self._extract_fingerprint_features(image_path)
+        elif biometric_type == 'iris':
+            return self._extract_iris_features(image_path)
+        else:
+            return self._fallback_features(image_path)
+    
+    def _extract_facial_features(self, image_path: str) -> Optional[np.ndarray]:
+        """Extract facial features using DeepFace with improved face detection."""
+        
+        if not DEEPFACE_AVAILABLE:
+            print("⚠ DeepFace not available, using fallback")
+            return self._fallback_features(image_path)
+        
+        # Try multiple detector backends in order of accuracy
+        detector_backends = [self.detector_backend, 'retinaface', 'mtcnn', 'opencv']
+        
+        for detector in detector_backends:
+            try:
+                # First, verify face is detected (enforce_detection=True for quality)
+                try:
+                    # Try with enforce_detection=True first to ensure face is found
+                    result = DeepFace.represent(
+                        img_path=image_path,
+                        model_name=self.face_model_name,
+                        enforce_detection=True,  # Require face detection
+                        detector_backend=detector,
+                        align=True  # Face alignment improves accuracy
+                    )
+                except ValueError as ve:
+                    # If enforce_detection=True fails, try with False but log warning
+                    if "Face could not be detected" in str(ve) or "could not detect a face" in str(ve).lower():
+                        print(f"⚠ Face not detected with {detector}, trying with relaxed detection...")
+                        result = DeepFace.represent(
+                            img_path=image_path,
+                            model_name=self.face_model_name,
+                            enforce_detection=False,
+                            detector_backend=detector,
+                            align=True
+                        )
+                    else:
+                        raise
+                
+                if result and len(result) > 0:
+                    embedding = np.array(result[0]['embedding'], dtype=np.float32)
+                    
+                    # Verify embedding quality
+                    if len(embedding) == 0 or np.isnan(embedding).any() or np.isinf(embedding).any():
+                        print(f"⚠ Invalid embedding from {detector}, trying next detector...")
+                        continue
+                    
+                    # L2 normalize for consistent cosine similarity
+                    norm = np.linalg.norm(embedding)
+                    if norm > 0:
+                        embedding = embedding / norm
+                    else:
+                        print(f"⚠ Zero norm embedding from {detector}, trying next detector...")
+                        continue
+                    
+                    # Ensure correct feature dimension
+                    if len(embedding) != self.feature_dim:
+                        if len(embedding) > self.feature_dim:
+                            # Truncate if larger
+                            embedding = embedding[:self.feature_dim]
+                        else:
+                            # Pad if smaller
+                            padding = np.zeros(self.feature_dim - len(embedding), dtype=np.float32)
+                            embedding = np.concatenate([embedding, padding])
+                    
+                    print(f"✓ Extracted {len(embedding)}D facial embedding using {detector} + {self.face_model_name}")
+                    print(f"   Embedding stats: min={embedding.min():.4f}, max={embedding.max():.4f}, mean={embedding.mean():.4f}, norm={np.linalg.norm(embedding):.4f}")
+                    return embedding
+                else:
+                    print(f"⚠ No face embedding returned from {detector}")
+                    continue
+                    
+            except Exception as e:
+                print(f"⚠ DeepFace extraction error with {detector}: {e}")
+                continue
+        
+        # If all detectors fail, try OpenCV fallback
+        print("⚠ All DeepFace detectors failed, trying OpenCV fallback...")
+        return self._opencv_facial_features(image_path)
+    
+    def _opencv_facial_features(self, image_path: str) -> Optional[np.ndarray]:
+        """Fallback facial feature extraction using OpenCV with improved preprocessing."""
+        if not CV2_AVAILABLE:
+            return self._fallback_features(image_path)
+        
         try:
             img = cv2.imread(image_path)
-            if img is None: return self._fallback_features(image_path)
+            if img is None:
+                print("⚠ Could not read image with OpenCV")
+                return self._fallback_features(image_path)
             
-            if biometric_type == 'facial':
-                # Face detection and cropping
-                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-                faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+            # Convert to grayscale
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            
+            # Face detection with multiple cascades for better detection
+            face_cascade = cv2.CascadeClassifier(
+                cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+            )
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+            
+            if len(faces) > 0:
+                # Use largest face
+                (x, y, w, h) = sorted(faces, key=lambda f: f[2]*f[3], reverse=True)[0]
                 
-                if len(faces) > 0:
-                    (x, y, w, h) = sorted(faces, key=lambda f: f[2]*f[3], reverse=True)[0]
-                    # Crop with 10% padding
-                    p = 0.1
-                    y1, y2 = max(0, int(y-h*p)), min(img.shape[0], int(y+h*(1+p)))
-                    x1, x2 = max(0, int(x-w*p)), min(img.shape[1], int(x+w*(1+p)))
-                    img = img[y1:y2, x1:x2]
+                # Crop face with padding
+                p = 0.2  # 20% padding
+                y1 = max(0, int(y - h * p))
+                y2 = min(img.shape[0], int(y + h * (1 + p)))
+                x1 = max(0, int(x - w * p))
+                x2 = min(img.shape[1], int(x + w * (1 + p)))
+                face_img = gray[y1:y2, x1:x2]
                 
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img = cv2.resize(img, (224, 224))
-            img_norm = img.astype(np.float32) / 255.0
+                # Resize to standard size for feature extraction
+                face_img = cv2.resize(face_img, (160, 160))
+                
+                # Apply histogram equalization for better contrast
+                face_img = cv2.equalizeHist(face_img)
+                
+                # Extract multiple feature types for better representation
+                # 1. Histogram features
+                hist = cv2.calcHist([face_img], [0], None, [128], [0, 256])
+                hist = hist.flatten().astype(np.float32)
+                
+                # 2. LBP-like features (Local Binary Pattern approximation)
+                # Divide image into blocks and compute histograms
+                features_list = [hist]
+                block_size = 40
+                for i in range(0, face_img.shape[0] - block_size, block_size):
+                    for j in range(0, face_img.shape[1] - block_size, block_size):
+                        block = face_img[i:i+block_size, j:j+block_size]
+                        block_hist = cv2.calcHist([block], [0], None, [32], [0, 256])
+                        features_list.append(block_hist.flatten().astype(np.float32))
+                
+                # Combine all features
+                combined_features = np.concatenate(features_list).astype(np.float32)
+                
+                # Pad or truncate to feature_dim
+                if len(combined_features) < self.feature_dim:
+                    padding = np.zeros(self.feature_dim - len(combined_features), dtype=np.float32)
+                    combined_features = np.concatenate([combined_features, padding])
+                else:
+                    combined_features = combined_features[:self.feature_dim]
+                
+                # Normalize
+                norm = np.linalg.norm(combined_features)
+                if norm > 0:
+                    combined_features = combined_features / norm
+                
+                print(f"✓ Extracted {len(combined_features)}D features using OpenCV fallback")
+                return combined_features
+            else:
+                print("⚠ No face detected with OpenCV cascade")
+                return self._fallback_features(image_path)
             
-            if self.face_model and TF_AVAILABLE:
-                features = self.face_model.predict(np.expand_dims(img_norm, axis=0), verbose=0)
-                return features[0]
-            
-            return self._fallback_features(image_path)
         except Exception as e:
-            print(f"Extraction error: {e}")
+            print(f"⚠ OpenCV fallback error: {e}")
+            import traceback
+            traceback.print_exc()
             return self._fallback_features(image_path)
+    
+    def _extract_fingerprint_features(self, image_path: str) -> Optional[np.ndarray]:
+        """Extract fingerprint features (placeholder for future implementation)."""
+        return self._fallback_features(image_path)
+    
+    def _extract_iris_features(self, image_path: str) -> Optional[np.ndarray]:
+        """Extract iris features (placeholder for future implementation)."""
+        return self._fallback_features(image_path)
 
     def _fallback_features(self, image_path: str) -> np.ndarray:
         """Deterministic fallback features based on perceptual hashing."""
@@ -136,24 +318,50 @@ class BiometricEngine:
 
     def compare(self, f1, f2, method='cosine'):
         """Compare two feature vectors and return similarity score (0-1)."""
-        if f1 is None or f2 is None: return 0.0
+        if f1 is None or f2 is None: 
+            print("⚠ Comparison failed: one or both features are None")
+            return 0.0
         
-        # Ensure same shape
+        # Ensure same shape and type
+        f1 = np.array(f1, dtype=np.float32).flatten()
+        f2 = np.array(f2, dtype=np.float32).flatten()
+        
         if len(f1) != len(f2):
             min_len = min(len(f1), len(f2))
             f1 = f1[:min_len]
             f2 = f2[:min_len]
+            print(f"⚠ Feature dimension mismatch, using first {min_len} dimensions")
+        
+        # Check for invalid values
+        if np.isnan(f1).any() or np.isnan(f2).any():
+            print("⚠ Comparison failed: NaN values in features")
+            return 0.0
+        
+        if np.isinf(f1).any() or np.isinf(f2).any():
+            print("⚠ Comparison failed: Inf values in features")
+            return 0.0
+        
+        # Normalize both vectors for consistent comparison
+        norm1 = np.linalg.norm(f1)
+        norm2 = np.linalg.norm(f2)
+        if norm1 > 0:
+            f1 = f1 / norm1
+        if norm2 > 0:
+            f2 = f2 / norm2
         
         if method == 'cosine':
-            # Cosine similarity: range [-1, 1] -> normalize to [0, 1]
-            dot = np.dot(f1, f2)
-            norm = np.linalg.norm(f1) * np.linalg.norm(f2) + 1e-8
-            cosine_sim = dot / norm
-            # Map from [-1, 1] to [0, 1]
-            return float((cosine_sim + 1) / 2)
+            # Cosine similarity: dot product of normalized vectors
+            # Since vectors are normalized, cosine similarity = dot product
+            # Range is [-1, 1], but for normalized vectors it's typically [0, 1]
+            cosine_sim = np.clip(np.dot(f1, f2), -1.0, 1.0)
+            # Map from [-1, 1] to [0, 1] for consistency
+            similarity = float((cosine_sim + 1) / 2)
+            return similarity
         else:
             # Euclidean distance converted to similarity
-            return float(1 / (1 + np.linalg.norm(f1 - f2)))
+            euclidean_dist = np.linalg.norm(f1 - f2)
+            similarity = float(1 / (1 + euclidean_dist))
+            return similarity
 
     def check_liveness(self, path):
         # Basic laplacian variance liveness

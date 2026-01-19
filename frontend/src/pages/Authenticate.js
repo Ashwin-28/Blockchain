@@ -150,22 +150,33 @@ function Authenticate() {
             )}
             
             {result && (
-              <div className={`result-display ${result.authenticated ? 'success' : 'failure'}`}>
-                <div className={`result-icon ${result.authenticated ? 'success' : 'error'}`}>
-                  {result.authenticated ? '✓' : '✕'}
+              <div className={`result-display ${result.success ? 'success' : 'failure'}`}>
+                <div className={`result-icon ${result.success ? 'success' : 'error'}`}>
+                  {result.success ? '✓' : '✕'}
                 </div>
-                <h4>{result.authenticated ? 'Identity Verified' : 'Verification Failed'}</h4>
-                <p>{result.message}</p>
+                <h4>{result.success ? 'Identity Verified' : 'Verification Failed'}</h4>
+                <p>{result.message || (result.success ? 'Your identity has been verified successfully.' : 'Biometric verification failed. Please try again.')}</p>
+                
+                {result.confidence !== undefined && (
+                  <div className="confidence-score">
+                    <span className="confidence-label">Confidence:</span>
+                    <span className={`confidence-value ${result.confidence >= 70 ? 'high' : 'low'}`}>
+                      {result.confidence.toFixed(2)}%
+                    </span>
+                  </div>
+                )}
                 
                 <div className="result-meta">
                   <div className="meta-item">
                     <span className="meta-label">Subject ID</span>
                     <span className="meta-value">{result.subject_id?.slice(0, 16)}...</span>
                   </div>
-                  <div className="meta-item">
-                    <span className="meta-label">Logged on Chain</span>
-                    <span className="meta-value">{result.logged_on_chain ? 'Yes' : 'No'}</span>
-                  </div>
+                  {result.logged_on_chain !== undefined && (
+                    <div className="meta-item">
+                      <span className="meta-label">Logged on Chain</span>
+                      <span className="meta-value">{result.logged_on_chain ? 'Yes' : 'No'}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

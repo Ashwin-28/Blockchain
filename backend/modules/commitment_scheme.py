@@ -37,7 +37,20 @@ class FuzzyCommitmentScheme:
         More stable than threshold-based quantization.
         """
         # Normalize features first
-        features = np.array(features, dtype=np.float32)
+        features = np.array(features, dtype=np.float32).flatten()
+        
+        # Handle variable feature dimensions
+        if len(features) != self.feature_dim:
+            if len(features) > self.feature_dim:
+                features = features[:self.feature_dim]
+            else:
+                # Pad with zeros if smaller
+                padding = np.zeros(self.feature_dim - len(features), dtype=np.float32)
+                features = np.concatenate([features, padding])
+        
+        # Remove invalid values
+        features = np.nan_to_num(features, nan=0.0, posinf=1.0, neginf=-1.0)
+        
         if np.std(features) > 0:
             features = (features - np.mean(features)) / np.std(features)
         

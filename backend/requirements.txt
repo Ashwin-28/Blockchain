@@ -20,6 +20,8 @@ dlib>=19.24.0
 # Deep Learning
 tensorflow>=2.16.0
 numpy>=1.26.0
+deepface>=0.0.79
+# Note: DeepFace includes RetinaFace, MTCNN, and other detectors
 
 # Cryptography
 cryptography==41.0.7

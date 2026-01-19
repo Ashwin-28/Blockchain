@@ -50,8 +50,9 @@ class BiometricModelTrainer:
     MODEL_CONFIGS = {
         'facial': {
             'input_shape': (224, 224, 3),
-            'embedding_dim': 128,
-            'architecture': 'FaceNet-Style CNN',
+            # Match production facial embedding dimensionality (ArcFace/DeepFace uses 512D)
+            'embedding_dim': 512,
+            'architecture': 'ArcFace-Style Embedding (512D)',
             'default_epochs': 50,
             'batch_size': 32
         },

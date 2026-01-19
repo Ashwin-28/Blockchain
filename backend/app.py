@@ -74,8 +74,10 @@ app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp'}
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Initialize services
-biometric_engine = BiometricEngine(feature_dim=1024)
-fcs = FuzzyCommitmentScheme(key_length=16, feature_dim=1024, error_tolerance=0.45, code_redundancy=7)
+# Use 512D for ArcFace/FaceNet512 (better accuracy), fallback to 128D for FaceNet
+biometric_engine = BiometricEngine(feature_dim=512)  # ArcFace uses 512D embeddings for better accuracy
+# Update FCS to handle variable feature dimensions
+fcs = FuzzyCommitmentScheme(key_length=16, feature_dim=512, error_tolerance=0.40, code_redundancy=7)
 encryption = EncryptionService()
 storage = StorageClient()
 
@@ -573,14 +575,15 @@ def authenticate_subject():
                             
                             print(f"📊 Direct comparison: similarity={similarity:.4f} ({direct_confidence:.2f}%)")
                             
-                            # Threshold: 60% similarity for facial recognition
-                            # MobileNetV2 normalized features should give high similarity for same person
-                            if similarity >= 0.60:
+                            # Threshold: 70% similarity for facial recognition (as per requirement)
+                            # ArcFace/FaceNet512 normalized features should give high similarity for same person
+                            # Using 0.70 threshold to meet >70% accuracy requirement
+                            if similarity >= 0.70:
                                 is_authenticated = True
                                 confidence = direct_confidence
                                 verification_method = "direct_feature_comparison"
                             else:
-                                print(f"❌ Similarity {similarity:.4f} below threshold 0.60")
+                                print(f"❌ Similarity {similarity:.4f} below threshold 0.70")
                     except Exception as e:
                         print(f"⚠ Direct feature comparison failed: {e}")
                         import traceback
@@ -711,11 +714,12 @@ def verify_biometrics():
         
         # Compare
         similarity = biometric_engine.compare(features1, features2)
-        threshold = 0.6
+        threshold = 0.70  # Updated to 70% threshold as per requirement
         
         return jsonify({
             'match': similarity >= threshold,
             'similarity': float(similarity),
+            'confidence': float(similarity * 100),
             'threshold': threshold
         })
         
