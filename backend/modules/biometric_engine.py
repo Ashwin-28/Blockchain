@@ -33,16 +33,16 @@ try:
     CV2_AVAILABLE = True
 except ImportError:
     CV2_AVAILABLE = False
-    print("⚠ OpenCV not installed")
+    print("[WARN] OpenCV not installed")
 
 # Import DeepFace for face recognition
 try:
     from deepface import DeepFace
     DEEPFACE_AVAILABLE = True
-    print("✓ DeepFace loaded for facial recognition")
+    print("[OK] DeepFace loaded for facial recognition")
 except ImportError:
     DEEPFACE_AVAILABLE = False
-    print("⚠ DeepFace not installed. Install with: pip install deepface")
+    print("[WARN] DeepFace not installed. Install with: pip install deepface")
 
 # Import TensorFlow with fallback (used for fingerprint/iris)
 try:
@@ -51,7 +51,7 @@ try:
     TF_AVAILABLE = True
 except ImportError:
     TF_AVAILABLE = False
-    print("⚠ TensorFlow not installed")
+    print("[WARN] TensorFlow not installed")
 
 
 class BiometricEngine:
@@ -75,26 +75,24 @@ class BiometricEngine:
         """Pre-load DeepFace model to avoid cold start delays"""
         if DEEPFACE_AVAILABLE:
             try:
-                # Try ArcFace first (best accuracy)
+                # Use FaceNet for 128D embeddings (matches app.py config)
+                self.face_model_name = 'Facenet'
+                self.feature_dim = 128
+                
                 try:
-                    DeepFace.build_model('ArcFace')
-                    print(f"✓ DeepFace ArcFace model initialized (512D embeddings)")
-                    self.face_model_name = 'ArcFace'
-                    self.feature_dim = 512
-                except Exception:
-                    # Fallback to FaceNet512
+                    DeepFace.build_model('Facenet')
+                    print(f"[OK] DeepFace FaceNet model initialized (128D embeddings)")
+                except Exception as e:
+                    print(f"[WARN] FaceNet build failed: {e}")
+                    # Fallback to FaceNet512 if basic FaceNet fails
                     try:
                         DeepFace.build_model('Facenet512')
-                        print(f"✓ DeepFace FaceNet512 model initialized (512D embeddings)")
+                        print(f"[OK] DeepFace FaceNet512 model initialized (512D embeddings)")
                         self.face_model_name = 'Facenet512'
                         self.feature_dim = 512
-                    except Exception:
-                        # Fallback to FaceNet
-                        DeepFace.build_model('Facenet')
-                        print(f"✓ DeepFace FaceNet model initialized (128D embeddings)")
-                        self.face_model_name = 'Facenet'
-                        self.feature_dim = 128
-                
+                    except Exception as e2:
+                        print(f"[WARN] FaceNet512 build failed: {e2}")
+
                 # Test detector backends in order of preference
                 test_image = np.zeros((224, 224, 3), dtype=np.uint8)
                 dummy_path = os.path.join(os.path.dirname(__file__), '..', 'uploads', '_warmup.jpg')
@@ -113,7 +111,7 @@ class BiometricEngine:
                                 enforce_detection=False
                             )
                             self.detector_backend = detector
-                            print(f"✓ Using detector backend: {detector}")
+                            print(f"[OK] Using detector backend: {detector}")
                             break
                     except Exception:
                         continue
@@ -122,7 +120,7 @@ class BiometricEngine:
                 if os.path.exists(dummy_path):
                     os.remove(dummy_path)
             except Exception as e:
-                print(f"⚠ DeepFace warmup note: {e}")
+                print(f"[WARN] DeepFace warmup note: {e}")
 
     def extract_features(self, image_path: str, biometric_type: str = 'facial') -> Optional[np.ndarray]:
         """Extract biometric features using DeepFace for facial recognition."""
@@ -140,7 +138,7 @@ class BiometricEngine:
         """Extract facial features using DeepFace with improved face detection."""
         
         if not DEEPFACE_AVAILABLE:
-            print("⚠ DeepFace not available, using fallback")
+            print("[WARN] DeepFace not available, using fallback")
             return self._fallback_features(image_path)
         
         # Try multiple detector backends in order of accuracy
@@ -161,7 +159,7 @@ class BiometricEngine:
                 except ValueError as ve:
                     # If enforce_detection=True fails, try with False but log warning
                     if "Face could not be detected" in str(ve) or "could not detect a face" in str(ve).lower():
-                        print(f"⚠ Face not detected with {detector}, trying with relaxed detection...")
+                        print(f"[WARN] Face not detected with {detector}, trying with relaxed detection...")
                         result = DeepFace.represent(
                             img_path=image_path,
                             model_name=self.face_model_name,
@@ -177,7 +175,7 @@ class BiometricEngine:
                     
                     # Verify embedding quality
                     if len(embedding) == 0 or np.isnan(embedding).any() or np.isinf(embedding).any():
-                        print(f"⚠ Invalid embedding from {detector}, trying next detector...")
+                        print(f"[WARN] Invalid embedding from {detector}, trying next detector...")
                         continue
                     
                     # L2 normalize for consistent cosine similarity
@@ -185,7 +183,7 @@ class BiometricEngine:
                     if norm > 0:
                         embedding = embedding / norm
                     else:
-                        print(f"⚠ Zero norm embedding from {detector}, trying next detector...")
+                        print(f"[WARN] Zero norm embedding from {detector}, trying next detector...")
                         continue
                     
                     # Ensure correct feature dimension
@@ -198,19 +196,19 @@ class BiometricEngine:
                             padding = np.zeros(self.feature_dim - len(embedding), dtype=np.float32)
                             embedding = np.concatenate([embedding, padding])
                     
-                    print(f"✓ Extracted {len(embedding)}D facial embedding using {detector} + {self.face_model_name}")
+                    print(f"[OK] Extracted {len(embedding)}D facial embedding using {detector} + {self.face_model_name}")
                     print(f"   Embedding stats: min={embedding.min():.4f}, max={embedding.max():.4f}, mean={embedding.mean():.4f}, norm={np.linalg.norm(embedding):.4f}")
                     return embedding
                 else:
-                    print(f"⚠ No face embedding returned from {detector}")
+                    print(f"[WARN] No face embedding returned from {detector}")
                     continue
                     
             except Exception as e:
-                print(f"⚠ DeepFace extraction error with {detector}: {e}")
+                print(f"[WARN] DeepFace extraction error with {detector}: {e}")
                 continue
         
         # If all detectors fail, try OpenCV fallback
-        print("⚠ All DeepFace detectors failed, trying OpenCV fallback...")
+        print("[WARN] All DeepFace detectors failed, trying OpenCV fallback...")
         return self._opencv_facial_features(image_path)
     
     def _opencv_facial_features(self, image_path: str) -> Optional[np.ndarray]:
@@ -221,7 +219,7 @@ class BiometricEngine:
         try:
             img = cv2.imread(image_path)
             if img is None:
-                print("⚠ Could not read image with OpenCV")
+                print("[WARN] Could not read image with OpenCV")
                 return self._fallback_features(image_path)
             
             # Convert to grayscale
@@ -319,7 +317,7 @@ class BiometricEngine:
     def compare(self, f1, f2, method='cosine'):
         """Compare two feature vectors and return similarity score (0-1)."""
         if f1 is None or f2 is None: 
-            print("⚠ Comparison failed: one or both features are None")
+            print("[WARN] Comparison failed: one or both features are None")
             return 0.0
         
         # Ensure same shape and type
@@ -330,15 +328,15 @@ class BiometricEngine:
             min_len = min(len(f1), len(f2))
             f1 = f1[:min_len]
             f2 = f2[:min_len]
-            print(f"⚠ Feature dimension mismatch, using first {min_len} dimensions")
+            print(f"[WARN] Feature dimension mismatch, using first {min_len} dimensions")
         
         # Check for invalid values
         if np.isnan(f1).any() or np.isnan(f2).any():
-            print("⚠ Comparison failed: NaN values in features")
+            print("[WARN] Comparison failed: NaN values in features")
             return 0.0
         
         if np.isinf(f1).any() or np.isinf(f2).any():
-            print("⚠ Comparison failed: Inf values in features")
+            print("[WARN] Comparison failed: Inf values in features")
             return 0.0
         
         # Normalize both vectors for consistent comparison

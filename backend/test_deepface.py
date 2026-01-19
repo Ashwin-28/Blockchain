@@ -21,19 +21,19 @@ def test_deepface_integration():
     print("\n1. Testing BiometricEngine import...")
     try:
         from modules.biometric_engine import BiometricEngine, DEEPFACE_AVAILABLE
-        print(f"   ✓ BiometricEngine imported successfully")
+        print(f"   [OK] BiometricEngine imported successfully")
         print(f"   DeepFace available: {DEEPFACE_AVAILABLE}")
     except Exception as e:
-        print(f"   ✗ Import failed: {e}")
+        print(f"   [FAIL] Import failed: {e}")
         return False
     
     # Step 2: Initialize engine
     print("\n2. Initializing BiometricEngine...")
     try:
         engine = BiometricEngine(feature_dim=128)
-        print(f"   ✓ Engine initialized with feature_dim=128")
+        print(f"   [OK] Engine initialized with feature_dim=128")
     except Exception as e:
-        print(f"   ✗ Initialization failed: {e}")
+        print(f"   [FAIL] Initialization failed: {e}")
         return False
     
     # Step 3: Create a test image
@@ -51,9 +51,9 @@ def test_deepface_integration():
         cv2.circle(img, (139, 85), 10, (50, 50, 50), -1)  # Right eye
         cv2.ellipse(img, (112, 130), (20, 10), 0, 0, 180, (100, 80, 80), -1)  # Mouth
         cv2.imwrite(test_image_path, img)
-        print(f"   ✓ Test image created: {test_image_path}")
+        print(f"   [OK] Test image created: {test_image_path}")
     except Exception as e:
-        print(f"   ✗ Image creation failed: {e}")
+        print(f"   [FAIL] Image creation failed: {e}")
         return False
     
     # Step 4: Extract features
@@ -61,13 +61,13 @@ def test_deepface_integration():
     try:
         features1 = engine.extract_features(test_image_path, 'facial')
         if features1 is not None:
-            print(f"   ✓ Features extracted: shape={features1.shape}, dtype={features1.dtype}")
+            print(f"   [OK] Features extracted: shape={features1.shape}, dtype={features1.dtype}")
             print(f"   Stats: min={features1.min():.4f}, max={features1.max():.4f}, mean={features1.mean():.4f}")
         else:
-            print(f"   ✗ Features extraction returned None")
+            print(f"   [FAIL] Features extraction returned None")
             return False
     except Exception as e:
-        print(f"   ✗ Feature extraction failed: {e}")
+        print(f"   [FAIL] Feature extraction failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -80,11 +80,11 @@ def test_deepface_integration():
         print(f"   Similarity with same image: {similarity * 100:.2f}%")
         
         if similarity >= 0.95:
-            print("   ✓ Self-comparison passed (>=95%)")
+            print("   [OK] Self-comparison passed (>=95%)")
         else:
-            print(f"   ⚠ Self-comparison lower than expected (got {similarity*100:.2f}%)")
+            print(f"   [WARN] Self-comparison lower than expected (got {similarity*100:.2f}%)")
     except Exception as e:
-        print(f"   ✗ Comparison failed: {e}")
+        print(f"   [FAIL] Comparison failed: {e}")
         return False
     
     # Step 6: Create slightly modified image
