@@ -386,6 +386,9 @@ def enroll_subject():
         # Store on IPFS/local
         template_cid = storage.add(encrypted_template)
         
+        # Also save raw features for demo mode comparison
+        storage.save_features(subject_id, features)
+        
         # Prepare blockchain data
         subject_id_bytes = bytes.fromhex(subject_id)
         commitment_hash = commitment['hash']
@@ -489,6 +492,8 @@ def authenticate_subject():
     subject_id = request.form.get('subject_id', '')
     biometric_type = request.form.get('type', 'facial')
     
+    print(f"DEBUG: Authenticating {subject_id}. Contract Address: '{CONTRACT_ADDRESS}'")
+
     if not subject_id:
         return jsonify({'error': 'Subject ID required'}), 400
     
@@ -513,10 +518,10 @@ def authenticate_subject():
                 subject_id_bytes = bytes.fromhex(subject_id)
                 
                 # Use authorized account for reading
+                sender = get_sender_account()
                 call_params = {}
-                if PRIVATE_KEY:
-                    account = w3.eth.account.from_key(PRIVATE_KEY)
-                    call_params = {'from': account.address}
+                if sender:
+                    call_params = {'from': sender}
                 
                 # Check if subject exists first
                 try:
@@ -573,34 +578,31 @@ def authenticate_subject():
                             
                             print(f"📊 Direct comparison: similarity={similarity:.4f} ({direct_confidence:.2f}%)")
                             
-                            # Threshold: 60% similarity for facial recognition
-                            # MobileNetV2 normalized features should give high similarity for same person
-                            if similarity >= 0.60:
+                            # Threshold: 70% similarity for facial recognition (ArcFace)
+                            # This corresponds to Cosine Distance < 0.30
+                            # User specified distance < 0.3, so similarity (1-dist) must be > 0.7
+                            if similarity > 0.70:
                                 is_authenticated = True
                                 confidence = direct_confidence
                                 verification_method = "direct_feature_comparison"
                             else:
-                                print(f"❌ Similarity {similarity:.4f} below threshold 0.60")
+                                print(f"❌ Similarity {similarity:.4f} below threshold 0.70 (Distance > 0.3)")
+                                # If direct comparison fails, we do NOT fallback to FCS for the same data
+                                # because direct float comparison is more accurate than quantized FCS.
+                                # preventing false positives.
+                                is_authenticated = False
                     except Exception as e:
                         print(f"⚠ Direct feature comparison failed: {e}")
                         import traceback
                         traceback.print_exc()
                 
                 # ============================================================
-                # VERIFICATION - FCS Check (SECONDARY / Privacy Proof)
+                # VERIFICATION - FCS Check (DISABLED for strict security)
                 # ============================================================
-                # FCS provides cryptographic proof without revealing template
-                if not is_authenticated and stored_delta:
-                    try:
-                        fcs_authenticated, fcs_confidence = fcs.verify(features, stored_hash, stored_delta)
-                        print(f"🔐 FCS Result: authenticated={fcs_authenticated}, confidence={fcs_confidence:.2f}%")
-                        
-                        if fcs_authenticated:
-                            is_authenticated = True
-                            confidence = fcs_confidence
-                            verification_method = "fuzzy_commitment_scheme"
-                    except Exception as e:
-                        print(f"⚠ FCS verification error: {e}")
+                # FCS is less accurate than direct float comparison.
+                # We disable it to prevent false positives if direct check fails.
+                # if not is_authenticated and not template_cid and stored_delta:
+                #    pass 
                 
                 print(f"✅ Final Result: authenticated={is_authenticated}, method={verification_method}, confidence={confidence:.2f}%")
                 
@@ -654,6 +656,7 @@ def authenticate_subject():
                 return jsonify({
                     'success': is_authenticated,
                     'confidence': confidence,
+                    'method': verification_method,
                     'subject_id': subject_id,
                     'logged_on_chain': logged_on_chain,
                     'blockchain_warning': blockchain_warning,
@@ -663,20 +666,45 @@ def authenticate_subject():
             except Exception as e:
                 return jsonify({'error': f'Blockchain error: {str(e)}'}), 500
         else:
-            # Demo mode - log to database only
+            # Demo mode (No Blockchain) - Perform local comparison
+            print("⚠ running in DEMO MODE (No Blockchain Configured)")
+            
+            # Retrieve locally stored features (from enrollment in DB/File)
+            # In a real app without blockchain, you'd fetch from sql/mongo.
+            # Here we assume storage.get_features works if implemented, 
+            # or we fail safe.
+            stored_features = storage.get_features(subject_id)
+            
+            demo_authenticated = False
+            demo_confidence = 0.0
+            
+            if stored_features is not None:
+                sim = biometric_engine.compare(features, stored_features)
+                # Same threshold as main logic
+                if sim > 0.70:
+                    demo_authenticated = True
+                    demo_confidence = sim * 100.0
+                print(f"📊 Demo Comparison: similarity={sim:.4f}")
+            else:
+                print("❌ Demo Mode: No stored features found for subject")
+
             db_service.log_authentication(
                 subject_id=subject_id,
-                success=True,
+                success=demo_authenticated,
+                confidence=demo_confidence,
                 ip_address=request.remote_addr,
                 user_agent=request.headers.get('User-Agent', '')[:500],
-                failure_reason=None
+                failure_reason=None if demo_authenticated else 'Biometric mismatch (Demo)'
             )
             
             return jsonify({
-                'authenticated': True,
+                'success': demo_authenticated,
+                'confidence': demo_confidence,
+                'method': 'demo_local_comparison',
                 'subject_id': subject_id,
-                'message': 'Demo mode - authentication simulated',
-                'demo_mode': True
+                'logged_on_chain': False,
+                'blockchain_warning': 'Demo Mode - No Blockchain Connection',
+                'message': 'Verification successful' if demo_authenticated else 'Biometric mismatch'
             })
         
     except Exception as e:
@@ -887,14 +915,13 @@ def internal_error(e):
 # ═══════════════════════════════════════════════════════════════════════════
 
 if __name__ == '__main__':
+    # Force UTF-8 encoding for Windows terminal
+    import sys
+    import io
+    if sys.platform == 'win32':
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+        
     init_blockchain()
-    
-    debug = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
-    port = int(os.environ.get('PORT', 5000))
-    
-    print(f"\n{'='*60}")
-    print("  Biometric Identity Verification Backend")
-    print(f"  Running on http://localhost:{port}")
-    print(f"{'='*60}\n")
-    
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    print("🚀 Starting Biometric Identity Backend on http://localhost:5000")
+    app.run(host='0.0.0.0', port=5000, debug=False)

@@ -24,16 +24,16 @@ function Authenticate() {
 
   const handleAuthenticate = async () => {
     if (!capturedImage || !subjectId) return;
-    
+
     setIsProcessing(true);
     setError(null);
     setResult(null);
-    
+
     try {
       const response = await fetch(capturedImage);
       const blob = await response.blob();
       const file = new File([blob], 'biometric.jpg', { type: 'image/jpeg' });
-      
+
       const authResult = await authenticateSubject(file, subjectId, 'facial');
       setResult(authResult);
     } catch (err) {
@@ -65,11 +65,11 @@ function Authenticate() {
               onChange={(e) => setSubjectId(e.target.value)}
               placeholder="Enter your subject ID"
             />
-            
+
             <div className="gold-line"></div>
-            
+
             <h3>Biometric Capture</h3>
-            
+
             {!capturedImage ? (
               <div className="webcam-container">
                 <Webcam
@@ -79,12 +79,12 @@ function Authenticate() {
                   videoConstraints={{ facingMode: 'user' }}
                   className="webcam"
                 />
-                
+
                 <div className="action-buttons centered mt-lg">
                   <button className="btn btn-primary" onClick={capture}>
                     Capture
                   </button>
-                  
+
                   <div className="upload-btn-wrapper">
                     <input
                       type="file"
@@ -102,7 +102,7 @@ function Authenticate() {
                         }
                       }}
                     />
-                    <button 
+                    <button
                       className="btn btn-outline"
                       onClick={() => document.getElementById('auth-file-upload').click()}
                     >
@@ -133,14 +133,14 @@ function Authenticate() {
           {/* Result Section */}
           <div className="auth-result card">
             <h3>Verification Result</h3>
-            
+
             {!result && !error && (
               <div className="result-placeholder">
                 <div className="placeholder-icon">🔍</div>
                 <p>Capture your biometric and click verify to see results</p>
               </div>
             )}
-            
+
             {error && (
               <div className="result-error">
                 <div className="result-icon error">✕</div>
@@ -148,15 +148,15 @@ function Authenticate() {
                 <p>{error}</p>
               </div>
             )}
-            
+
             {result && (
-              <div className={`result-display ${result.authenticated ? 'success' : 'failure'}`}>
-                <div className={`result-icon ${result.authenticated ? 'success' : 'error'}`}>
-                  {result.authenticated ? '✓' : '✕'}
+              <div className={`result-display ${result.success ? 'success' : 'failure'}`}>
+                <div className={`result-icon ${result.success ? 'success' : 'error'}`}>
+                  {result.success ? '✓' : '✕'}
                 </div>
-                <h4>{result.authenticated ? 'Identity Verified' : 'Verification Failed'}</h4>
+                <h4>{result.success ? 'Identity Verified' : 'Verification Failed'}</h4>
                 <p>{result.message}</p>
-                
+
                 <div className="result-meta">
                   <div className="meta-item">
                     <span className="meta-label">Subject ID</span>

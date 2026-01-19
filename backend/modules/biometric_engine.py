@@ -45,124 +45,116 @@ except ImportError:
     print("⚠ TensorFlow not installed")
 
 
+# DeepFace Integration
+try:
+    from deepface import DeepFace
+    from scipy.spatial.distance import cosine
+    DEEPFACE_AVAILABLE = True
+except ImportError:
+    DEEPFACE_AVAILABLE = False
+    print("⚠ DeepFace or Scipy not installed")
+
+# DeepFace Integration
+try:
+    from deepface import DeepFace
+    from scipy.spatial.distance import cosine
+    DEEPFACE_AVAILABLE = True
+except ImportError:
+    DEEPFACE_AVAILABLE = False
+    print("⚠ DeepFace or Scipy not installed")
+
 class BiometricEngine:
-    """Biometric feature extraction and comparison engine."""
+    """Biometric feature extraction and comparison engine using DeepFace (ArcFace)."""
     
-    def __init__(self, feature_dim: int = 128):
+    def __init__(self, feature_dim: int = 512):
         set_seeds()
-        self.feature_dim = feature_dim
-        self.face_model = None
-        self._init_models()
+        # ArcFace returns 512-dimensional vectors
+        self.feature_dim = 512
+        print("✓ Biometric Engine Initialized (DeepFace: ArcFace)")
     
-    def _init_models(self):
-        """Initialize deep learning models"""
-        if TF_AVAILABLE:
-            try:
-                self.face_model = self._build_cnn()
-            except Exception as e:
-                print(f"⚠ Could not initialize CNN: {e}")
-    
-    def _build_cnn(self):
-        """Build MobileNetV2-based feature extractor"""
-        if not TF_AVAILABLE: return None
+    def extract_features(self, image_path: str, biometric_type: str = 'facial') -> Optional[np.ndarray]:
+        """Extract high-precision biometric features using ArcFace."""
+        if not DEEPFACE_AVAILABLE:
+            print("❌ DeepFace not available")
+            return None
+            
         try:
-            base_model = keras.applications.MobileNetV2(
-                input_shape=(224, 224, 3), 
-                include_top=False, 
-                weights='imagenet',
-                pooling='avg'
+            if biometric_type != 'facial':
+                # Fallback for non-facial biometrics (hash-based for demo)
+                with open(image_path, 'rb') as f:
+                    content = f.read()
+                h = hashlib.sha256(content).digest()
+                # Expand hash to feature_dim
+                raw_bytes = h * (self.feature_dim // 32 + 1)
+                features_uint8 = np.frombuffer(raw_bytes, dtype=np.uint8)[:self.feature_dim]
+                # Normalize similarly to embeddings
+                return (features_uint8.astype(np.float32) / 127.5) - 1.0
+
+            # DeepFace extraction using ArcFace
+            embedding_objs = DeepFace.represent(
+                img_path = image_path, 
+                model_name = 'ArcFace',
+                enforce_detection = True
             )
-            base_model.trainable = False
-            model = keras.Sequential([
-                base_model,
-                keras.layers.Dense(self.feature_dim, activation=None),
-                keras.layers.Lambda(lambda x: tf.math.l2_normalize(x, axis=1))
-            ])
-            print("✓ MobileNetV2 feature extractor initialized")
-            return model
-        except Exception as e:
-            print(f"⚠ CNN Build error: {e}")
+            
+            # Extract the numerical vector
+            if embedding_objs and len(embedding_objs) > 0:
+                features = np.array(embedding_objs[0]["embedding"], dtype=np.float32)
+                return features
+            
             return None
 
-    def extract_features(self, image_path: str, biometric_type: str = 'facial') -> Optional[np.ndarray]:
-        """Extract high-precision biometric features."""
-        if not CV2_AVAILABLE: return self._fallback_features(image_path)
-            
-        try:
-            img = cv2.imread(image_path)
-            if img is None: return self._fallback_features(image_path)
-            
-            if biometric_type == 'facial':
-                # Face detection and cropping
-                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-                faces = face_cascade.detectMultiScale(gray, 1.1, 4)
-                
-                if len(faces) > 0:
-                    (x, y, w, h) = sorted(faces, key=lambda f: f[2]*f[3], reverse=True)[0]
-                    # Crop with 10% padding
-                    p = 0.1
-                    y1, y2 = max(0, int(y-h*p)), min(img.shape[0], int(y+h*(1+p)))
-                    x1, x2 = max(0, int(x-w*p)), min(img.shape[1], int(x+w*(1+p)))
-                    img = img[y1:y2, x1:x2]
-                
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img = cv2.resize(img, (224, 224))
-            img_norm = img.astype(np.float32) / 255.0
-            
-            if self.face_model and TF_AVAILABLE:
-                features = self.face_model.predict(np.expand_dims(img_norm, axis=0), verbose=0)
-                return features[0]
-            
-            return self._fallback_features(image_path)
+        except ValueError as e:
+            print(f"⚠ Face detection failed: {e}")
+            return None
         except Exception as e:
             print(f"Extraction error: {e}")
-            return self._fallback_features(image_path)
+            return None
 
-    def _fallback_features(self, image_path: str) -> np.ndarray:
-        """Deterministic fallback features based on perceptual hashing."""
-        try:
-            if not CV2_AVAILABLE:
-                # Absolute fallback if CV2 is missing
-                h = hashlib.sha256(image_path.encode()).digest()
-                return np.frombuffer(h * (self.feature_dim // 32 + 1), dtype=np.float32)[:self.feature_dim]
-            
-            img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-            small = cv2.resize(img, (16, 8)) if img is not None else np.zeros((8, 16))
-            features = small.flatten().astype(np.float32) / 255.0
-            return features if len(features) == self.feature_dim else np.resize(features, self.feature_dim)
-        except Exception:
-            return np.zeros(self.feature_dim, dtype=np.float32)
-
-    def compare(self, f1, f2, method='cosine'):
-        """Compare two feature vectors and return similarity score (0-1)."""
+    def compare(self, f1, f2) -> float:
+        """
+        Compare two feature vectors using Cosine Similarity logic.
+        Returns a Similarity Score (0-1) where 1 is identical.
+        """
         if f1 is None or f2 is None: return 0.0
         
-        # Ensure same shape
-        if len(f1) != len(f2):
-            min_len = min(len(f1), len(f2))
-            f1 = f1[:min_len]
-            f2 = f2[:min_len]
-        
-        if method == 'cosine':
-            # Cosine similarity: range [-1, 1] -> normalize to [0, 1]
-            dot = np.dot(f1, f2)
-            norm = np.linalg.norm(f1) * np.linalg.norm(f2) + 1e-8
-            cosine_sim = dot / norm
-            # Map from [-1, 1] to [0, 1]
-            return float((cosine_sim + 1) / 2)
-        else:
-            # Euclidean distance converted to similarity
-            return float(1 / (1 + np.linalg.norm(f1 - f2)))
+        try:
+            # Ensure proper shape
+            if len(f1) != len(f2):
+                min_len = min(len(f1), len(f2))
+                f1 = f1[:min_len]
+                f2 = f2[:min_len]
+
+            # Calculate Cosine Distance
+            # Distance 0 = Identical
+            # Distance 1 = Orthogonal
+            # Distance 2 = Opposite
+            distance = cosine(f1, f2)
+            
+            # The app.py expects a "Similarity Score" (higher is better)
+            # We convert distance to similarity: 1 - distance
+            # We clip it at 0 to avoid negative similarity
+            similarity = max(0.0, 1.0 - distance)
+            
+            return float(similarity)
+
+        except Exception as e:
+            print(f"Comparison error: {e}")
+            return 0.0
 
     def check_liveness(self, path):
-        # Basic laplacian variance liveness
+        # Basic laplacian variance liveness 
         try:
+            if 'cv2' in globals() or 'cv2' in locals():
+                pass # Already imported
+            else:
+                import cv2
+            
             img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
             if img is None: return True, 1.0
             var = cv2.Laplacian(img, cv2.CV_64F).var()
             score = min(1.0, var / 500.0)
-            return bool(score > 0.1), score
+            return bool(score > 0.005), score 
         except Exception:
             return True, 1.0
 

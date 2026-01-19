@@ -1,0 +1,93 @@
+﻿
+Compiling your contracts...
+===========================
+> Compiling .\contracts\BiometricRegistry.sol
+> Compiling .\contracts\Migrations.sol
+> Compilation warnings encountered:
+
+    Warning: This declaration has the same name as another declaration.
+   --> project:/contracts/BiometricRegistry.sol:423:9:
+    |
+423 |         bool isEnrollmentCenter
+    |         ^^^^^^^^^^^^^^^^^^^^^^^
+Note: The other declaration is here:
+   --> project:/contracts/BiometricRegistry.sol:533:5:
+    |
+533 |     function isEnrollmentCenter(address nodeAddress) external view returns (bool) {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+,Warning: This declaration has the same name as another declaration.
+   --> project:/contracts/BiometricRegistry.sol:469:13:
+    |
+469 |             bool isEnrollmentCenter,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^
+Note: The other declaration is here:
+   --> project:/contracts/BiometricRegistry.sol:533:5:
+    |
+533 |     function isEnrollmentCenter(address nodeAddress) external view returns (bool) {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+
+> Artifacts written to C:\Users\Ramanathan\Desktop\Kavin\Blockchain_AG\build\contracts
+> Compiled successfully using:
+   - solc: 0.8.20+commit.a1b79de6.Emscripten.clang
+
+
+Starting migrations...
+======================
+> Network name:    'development'
+> Network id:      1337
+> Block gas limit: 30000000 (0x1c9c380)
+
+
+1_initial_migration.js
+======================
+
+   Replacing 'Migrations'
+   ----------------------
+   > transaction hash:    0x3c7b4b346d6e894aca7b8a91bf6a36f701fa80a67d2eea05a6c6b8e56ac10415
+   > Blocks: 0            Seconds: 0
+   > contract address:    0x50178314c37d5f08817395189a1562F3fFDAB099
+   > block number:        1
+   > block timestamp:     1768835390
+   > account:             0xe1468B0Aa0015d9e15E6eeFDD5825dfa8400C844
+   > balance:             999.9970166
+   > gas used:            149170 (0x246b2)
+   > gas price:           20 gwei
+   > value sent:          0 ETH
+   > total cost:          0.0029834 ETH
+
+   > Saving migration to chain.
+   > Saving artifacts
+   -------------------------------------
+   > Total cost:           0.0029834 ETH
+
+
+2_deploy_registry.js
+====================
+
+   Replacing 'BiometricRegistry'
+   -----------------------------
+   > transaction hash:    0x91758ee23ebe28ec00aa9e65010474c183bb4b54e72975d9c6750aa3d5f48035
+   > Blocks: 0            Seconds: 0
+   > contract address:    0x299264E267764B8B6604Fd3a62bB018222AbC967
+   > block number:        3
+   > block timestamp:     1768835390
+   > account:             0xe1468B0Aa0015d9e15E6eeFDD5825dfa8400C844
+   > balance:             999.95302042
+   > gas used:            2154119 (0x20de87)
+   > gas price:           20 gwei
+   > value sent:          0 ETH
+   > total cost:          0.04308238 ETH
+
+   > Saving migration to chain.
+   > Saving artifacts
+   -------------------------------------
+   > Total cost:          0.04308238 ETH
+
+Summary
+=======
+> Total deployments:   2
+> Final cost:          0.04606578 ETH
+
+

@@ -1,0 +1,64 @@
+﻿
+============================================================
+ 1. TESTING HEALTH & STATUS
+============================================================
+Status: 200
+{
+  "blockchain": "connected",
+  "status": "healthy",
+  "timestamp": "2026-01-19T20:51:29.605036",
+  "version": "1.0.0"
+}
+
+============================================================
+ 2. TESTING SUBJECT ENROLLMENT
+============================================================
+Status: 201
+{
+  "biometric_type": "facial",
+  "commitment_hash": "e3d9867a97e38b2c94f64f992d300173c86b234d110563b8565a10fc045d1d6f",
+  "delta": "71d20c5a626c2896d8ac333d4f126dd8b52acfce97e8cd29e32597550b9155ecd3f727b7ecc853c4c3be3210f6105d8a5d21f0f9441cda492b5c09cafcbf96890471848341e699118a6053b832cc962057487dd134af0ef1b211a81d165600584a8c92be30651ab9715be52316901fa81e3c0fd99bf594ec962e5a2a9bb63ae0",
+  "message": "Identity enrolled successfully. Your Subject Code is: 713965",
+  "subject_code": "713965",
+  "subject_id": "73221def4ec03db6e83088d6bc2f373a27d74c8f03b930ab769a7a590e53f280",
+  "success": true,
+  "template_cid": "Qm2704d5cc16608b6162050515a288cea17afbe4ed0911"
+}
+Γ£à Enrollment successful!
+
+============================================================
+ 3. TESTING AUTHENTICATION
+============================================================
+Status: 200
+{
+  "authenticated": true,
+  "demo_mode": true,
+  "message": "Demo mode - authentication simulated",
+  "subject_id": "73221def4ec03db6e83088d6bc2f373a27d74c8f03b930ab769a7a590e53f280"
+}
+Γ¥î Authentication failed: Demo mode - authentication simulated
+
+============================================================
+ 4. TESTING STATISTICS
+============================================================
+Status: 200
+{
+  "blockchain_connected": true,
+  "database_connected": true,
+  "models_trained": 1,
+  "successful_authentications": 9,
+  "timestamp": "2026-01-19T20:51:32.305639",
+  "total_authentications": 19,
+  "total_subjects": 32
+}
+
+============================================================
+ 5. LISTING SUBJECTS
+============================================================
+Status: 200
+Total Subjects: 32
+
+============================================================
+ FINAL TEST SUMMARY
+============================================================
+ΓÜá∩╕Å SOME TESTS FAILED. Please check the logs above.
