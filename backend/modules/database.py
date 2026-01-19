@@ -16,7 +16,7 @@ try:
     SQLALCHEMY_AVAILABLE = True
 except ImportError:
     SQLALCHEMY_AVAILABLE = False
-    print("⚠ SQLAlchemy not available.")
+    print("[WARN] SQLAlchemy not available.")
 
 try:
     from pymongo import MongoClient
@@ -24,7 +24,7 @@ try:
     PYMONGO_AVAILABLE = True
 except ImportError:
     PYMONGO_AVAILABLE = False
-    print("⚠ PyMongo not available.")
+    print("[WARN] PyMongo not available.")
 
 # ==================== Configuration ====================
 DATABASE_TYPE = os.getenv('DATABASE_TYPE', 'sqlite')  # sqlite or mongodb
@@ -59,6 +59,8 @@ if SQLALCHEMY_AVAILABLE:
                 'name': self.name,
                 'email': self.email,
                 'biometric_type': self.biometric_type,
+                'commitment_hash': self.commitment_hash,
+                'delta_storage_id': self.delta_storage_id,
                 'is_active': self.is_active,
                 'created_at': self.created_at.isoformat() if self.created_at else None,
                 'blockchain_tx': self.blockchain_tx
@@ -169,9 +171,9 @@ class SqlDatabaseService:
             self.engine = create_engine(DATABASE_URL, echo=False)
             self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
             Base.metadata.create_all(bind=self.engine)
-            print("✓ SQLite initialized successfully")
+            print("[OK] SQLite initialized successfully")
         else:
-            print("⚠ SQLAlchemy not initialized")
+            print("[WARN] SQLAlchemy not initialized")
     
     def get_session(self):
         return self.SessionLocal() if self.available else None
@@ -384,7 +386,7 @@ class MongoDatabaseService:
                 self.db = self.client[self.db_name]
                 # Test connection
                 self.client.server_info()
-                print(f"✓ Connected to MongoDB at {MONGO_URI}")
+                print(f"[OK] Connected to MongoDB at {MONGO_URI}")
                 
                 # Indexes
                 self.db.subjects.create_index("subject_id", unique=True)
@@ -394,10 +396,10 @@ class MongoDatabaseService:
                 self.db.training_jobs.create_index("job_id", unique=True)
                 
             except Exception as e:
-                print(f"⚠ Failed to connect to MongoDB: {e}")
+                print(f"[WARN] Failed to connect to MongoDB: {e}")
                 self.available = False
         else:
-            print("⚠ PyMongo not initialized")
+            print("[WARN] PyMongo not initialized")
 
     def _doc_to_dict(self, doc):
         if not doc: return None
@@ -575,7 +577,7 @@ if DATABASE_TYPE == 'mongodb':
     if PYMONGO_AVAILABLE:
         db_service = MongoDatabaseService()
     else:
-        print("⚠ DATABASE_TYPE is mongodb but pymongo is missing. Falling back to SQLite.")
+        print("[WARN] DATABASE_TYPE is mongodb but pymongo is missing. Falling back to SQLite.")
         db_service = SqlDatabaseService()
 else:
     db_service = SqlDatabaseService()

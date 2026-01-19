@@ -37,7 +37,20 @@ class FuzzyCommitmentScheme:
         More stable than threshold-based quantization.
         """
         # Normalize features first
-        features = np.array(features, dtype=np.float32)
+        features = np.array(features, dtype=np.float32).flatten()
+        
+        # Handle variable feature dimensions
+        if len(features) != self.feature_dim:
+            if len(features) > self.feature_dim:
+                features = features[:self.feature_dim]
+            else:
+                # Pad with zeros if smaller
+                padding = np.zeros(self.feature_dim - len(features), dtype=np.float32)
+                features = np.concatenate([features, padding])
+        
+        # Remove invalid values
+        features = np.nan_to_num(features, nan=0.0, posinf=1.0, neginf=-1.0)
+        
         if np.std(features) > 0:
             features = (features - np.mean(features)) / np.std(features)
         
@@ -103,54 +116,67 @@ class FuzzyCommitmentScheme:
         
         As per Juels & Wattenberg:
         1. Generate random secret key K
-        2. Encode K using error-correcting code → C
-        3. Quantize biometric features → T (template)
-        4. Compute delta = T ⊕ C (helper data)
+        2. Encode K using error-correcting code -> C
+        3. Quantize biometric features -> T (template)
+        4. Compute delta = T XOR C (helper data)
         5. Compute hash H(K)
         
-        Returns: {hash: H(K), delta: T⊕C, key: K}
+        Returns: {hash: H(K), delta: T XOR C, key: K}
         """
         # Generate random secret key
         key = np.random.bytes(self.key_length)
         
-        # Quantize biometric to binary template
+        if len(key) != self.key_length:
+            raise ValueError(f"Key must be {self.key_length} bytes. Got {len(key)}")
+        
+        # 1. Error Correcting Code: Encode K -> C
+        codeword = self._encode(key) # Changed _encode_ecc to _encode to match existing method
+        
+        # 2. Quantize biometric features -> T (template)
         template = self._quantize(features)
         
-        # Encode key with error-correcting code
-        codeword = self._encode(key)
+        # 3. Compute delta = T XOR C (helper data)
+        # Convert template and codeword to numpy arrays of bits for bitwise_xor
+        template_bits = np.unpackbits(np.frombuffer(template, dtype=np.uint8))
+        codeword_bits = np.unpackbits(np.frombuffer(codeword, dtype=np.uint8))
+
+        # Pad codeword if necessary
+        if len(codeword_bits) > len(template_bits):
+            template_bits = np.pad(template_bits, (0, len(codeword_bits) - len(template_bits)), 'constant')
+        elif len(template_bits) > len(codeword_bits):
+            codeword_bits = np.pad(codeword_bits, (0, len(template_bits) - len(codeword_bits)), 'constant')
+            
+        delta_bits = np.bitwise_xor(template_bits, codeword_bits)
+        delta = bytes(np.packbits(delta_bits)) # Pack back to bytes
+
+        # Hash the key for verification
+        commitment_hash = hashlib.sha256(key).digest()
         
-        # Compute helper data: delta = template XOR codeword
-        delta = self._xor(template, codeword)
-        
-        # Hash the key (this is what's stored on blockchain)
-        key_hash = hashlib.sha256(key).digest()
-        
-        print(f"🔐 FCS Commit: template={len(template)}B, codeword={len(codeword)}B, delta={len(delta)}B")
+        print(f"[INFO] FCS Commit: template={len(template)}B, codeword={len(codeword)}B, delta={len(delta)}B")
         
         return {
-            'hash': key_hash,
+            'hash': commitment_hash,
             'delta': delta,
-            'key': key,
-            'template_hash': hashlib.sha256(template).digest()
+            'key': key
         }
 
-    def verify(self, features: np.ndarray, stored_hash: bytes, stored_delta: bytes) -> Tuple[bool, float]:
+    def verify(self, features: np.ndarray, stored_hash: bytes, delta_bytes: bytes) -> Tuple[bool, float, bytes]:
         """
         Verify biometric features against stored commitment.
         
         As per Juels & Wattenberg:
-        1. Quantize new biometric → T'
-        2. Compute C' = T' ⊕ delta (recover noisy codeword)
+        1. Quantize new biometric -> T'
+        2. Compute C' = T' XOR delta (recover noisy codeword)
         3. Decode C' to get K' (error correction recovers key)
         4. Verify H(K') == stored_hash
         
-        Returns: (is_authenticated, confidence_score)
+        Returns: (is_authenticated, confidence_score, recovered_hash)
         """
         # Quantize verification biometric
         template_prime = self._quantize(features)
         
-        # Recover codeword: C' = T' ⊕ delta
-        codeword_prime = self._xor(template_prime, stored_delta)
+        # Recover codeword: C' = T' XOR delta
+        codeword_prime = self._xor(template_prime, delta_bytes)
         
         # Decode to recover key (error correction)
         key_prime = self._decode(codeword_prime, self.key_length)
@@ -169,7 +195,7 @@ class FuzzyCommitmentScheme:
         
         similarity = (1.0 - hamming_dist) * 100.0
         
-        print(f"🔍 FCS Verify: exact_match={exact_match}, hamming_dist={hamming_dist:.4f}, similarity={similarity:.2f}%")
+        print(f"[INFO] FCS Verify: exact_match={exact_match}, hamming_dist={hamming_dist:.4f}, similarity={similarity:.2f}%")
         
         # SUCCESS CONDITIONS:
         # 1. Exact hash match (strict FCS - proves same biometric)
@@ -182,5 +208,5 @@ class FuzzyCommitmentScheme:
         else:
             confidence = similarity
         
-        return is_authenticated, confidence
+        return is_authenticated, confidence, hash_prime
 

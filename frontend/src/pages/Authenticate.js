@@ -155,17 +155,77 @@ function Authenticate() {
                   {result.success ? '✓' : '✕'}
                 </div>
                 <h4>{result.success ? 'Identity Verified' : 'Verification Failed'}</h4>
+<<<<<<< HEAD
                 <p>{result.message}</p>
+=======
+                <p>{result.message || (result.success ? 'Your identity has been verified successfully.' : 'Biometric verification failed. Please try again.')}</p>
+
+                {result.confidence !== undefined && (
+                  <div className="confidence-score">
+                    <span className="confidence-label">Confidence:</span>
+                    <span className={`confidence-value ${result.confidence >= 70 ? 'high' : 'low'}`}>
+                      {result.confidence.toFixed(2)}%
+                    </span>
+                  </div>
+                )}
+>>>>>>> 4140c20263e0135c018cb19d71e0ad7b5e6aa891
 
                 <div className="result-meta">
                   <div className="meta-item">
                     <span className="meta-label">Subject ID</span>
                     <span className="meta-value">{result.subject_id?.slice(0, 16)}...</span>
                   </div>
-                  <div className="meta-item">
-                    <span className="meta-label">Logged on Chain</span>
-                    <span className="meta-value">{result.logged_on_chain ? 'Yes' : 'No'}</span>
-                  </div>
+                  {result.logged_on_chain !== undefined && (
+                    <div className="meta-item">
+                      <span className="meta-label">Logged on Chain</span>
+                      <span className="meta-value">{result.logged_on_chain ? 'Yes' : 'No'}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="result-meta" style={{ marginTop: '1rem' }}>
+                  <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Cryptographic Proof</div>
+
+                  {result.hashes ? (
+                    <>
+                      <div className="meta-item">
+                        <span className="meta-label">Stored Hash</span>
+                        <span className="meta-value" title={result.hashes.stored}>
+                          {result.hashes.stored ? result.hashes.stored.slice(0, 10) + '...' + result.hashes.stored.slice(-8) : '---'}
+                        </span>
+                      </div>
+
+                      <div className="meta-item">
+                        <span className="meta-label">Computed Hash</span>
+                        <span className="meta-value" title={result.hashes.computed || 'N/A'}>
+                          {result.hashes.computed ? (result.hashes.computed.slice(0, 10) + '...' + result.hashes.computed.slice(-8)) : '---'}
+                        </span>
+                      </div>
+
+                      <div className="meta-item">
+                        <span className="meta-label">Match Score</span>
+                        <span className="meta-value" style={{ fontWeight: 'bold' }}>
+                          {result.confidence ? Number(result.confidence).toFixed(2) + '%' : 'N/A'}
+                        </span>
+                      </div>
+
+                      <div className="meta-item">
+                        <span className="meta-label">Integrity Status</span>
+                        <span className="meta-value" style={{
+                          color: result.hashes.match ? 'var(--accent-emerald)' : 'var(--accent-ruby)',
+                          fontWeight: 'bold'
+                        }}>
+                          {result.hashes.match ? 'VERIFIED' : 'FAILED'}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="meta-item">
+                      <span className="meta-value" style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>
+                        Proof data unavailable
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

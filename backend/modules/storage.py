@@ -28,9 +28,12 @@ class StorageClient:
         if IPFS_AVAILABLE:
             try:
                 self.client = ipfshttpclient.connect(ipfs_addr)
-                print(f"✓ Connected to IPFS at {ipfs_addr}")
+                # Test connection
+                self.client.id()
+                print(f"[OK] Connected to IPFS at {ipfs_addr}")
             except Exception as e:
-                print(f"⚠ IPFS unavailable, using local storage: {e}")
+                self.client = None
+                print(f"[WARN] IPFS unavailable, using local storage: {e}")
     
     def add(self, data: bytes, pin: bool = True) -> str:
         """Store data and return content identifier"""

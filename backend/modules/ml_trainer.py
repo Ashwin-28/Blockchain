@@ -20,10 +20,10 @@ try:
     from tensorflow.keras import layers, models, optimizers, callbacks
     from tensorflow.keras.preprocessing.image import ImageDataGenerator
     TF_AVAILABLE = True
-    print(f"✓ TensorFlow {tf.__version__} loaded for ML training")
+    print(f"[OK] TensorFlow {tf.__version__} loaded for ML training")
 except ImportError:
     TF_AVAILABLE = False
-    print("⚠ TensorFlow not available. Install with: pip install tensorflow")
+    print("[WARN] TensorFlow not available. Install with: pip install tensorflow")
 
 # OpenCV for image processing
 try:
@@ -31,16 +31,16 @@ try:
     CV2_AVAILABLE = True
 except ImportError:
     CV2_AVAILABLE = False
-    print("⚠ OpenCV not available")
+    print("[WARN] OpenCV not available")
 
 # Sklearn for metrics
 try:
     from sklearn.model_selection import train_test_split
-    from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
+    from sklearn.metrics import classification_report, confusion_matrix, precision_recall_fscore_support
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
-    print("⚠ Scikit-learn not available. Install with: pip install scikit-learn")
+    print("[WARN] Scikit-learn not available. Install with: pip install scikit-learn")
 
 
 class BiometricModelTrainer:
@@ -50,8 +50,9 @@ class BiometricModelTrainer:
     MODEL_CONFIGS = {
         'facial': {
             'input_shape': (224, 224, 3),
-            'embedding_dim': 128,
-            'architecture': 'FaceNet-Style CNN',
+            # Match production facial embedding dimensionality (ArcFace/DeepFace uses 512D)
+            'embedding_dim': 512,
+            'architecture': 'ArcFace-Style Embedding (512D)',
             'default_epochs': 50,
             'batch_size': 32
         },
@@ -84,7 +85,7 @@ class BiometricModelTrainer:
         from .database import db_service
         self.db = db_service
         
-        print(f"✓ ML Trainer initialized (TensorFlow: {TF_AVAILABLE})")
+        print(f"[OK] ML Trainer initialized (TensorFlow: {TF_AVAILABLE})")
     
     # ==================== Model Architecture Builders ====================
     
