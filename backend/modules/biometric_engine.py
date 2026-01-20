@@ -76,23 +76,32 @@ class BiometricEngine:
         """Pre-load DeepFace model to avoid cold start delays"""
         if DEEPFACE_AVAILABLE:
             try:
-                # Use FaceNet for 128D embeddings (matches app.py config)
-                self.face_model_name = 'Facenet'
-                self.feature_dim = 128
+                # Prioritize 512D models if requested
+                candidates = ['Facenet512', 'ArcFace'] if self.feature_dim == 512 else ['Facenet', 'Facenet512']
                 
-                try:
-                    DeepFace.build_model('Facenet')
-                    print(f"[OK] DeepFace FaceNet model initialized (128D embeddings)")
-                except Exception as e:
-                    print(f"[WARN] FaceNet build failed: {e}")
-                    # Fallback to FaceNet512 if basic FaceNet fails
+                model_loaded = False
+                for model in candidates:
                     try:
-                        DeepFace.build_model('Facenet512')
-                        print(f"[OK] DeepFace FaceNet512 model initialized (512D embeddings)")
-                        self.face_model_name = 'Facenet512'
-                        self.feature_dim = 512
-                    except Exception as e2:
-                        print(f"[WARN] FaceNet512 build failed: {e2}")
+                        DeepFace.build_model(model)
+                        self.face_model_name = model
+                        if model in ['Facenet512', 'ArcFace']:
+                            self.feature_dim = 512
+                        else:
+                            self.feature_dim = 128
+                        print(f"[OK] DeepFace {model} model initialized ({self.feature_dim}D)")
+                        model_loaded = True
+                        break
+                    except Exception as e:
+                        print(f"[WARN] {model} build failed: {e}")
+
+                if not model_loaded:
+                    try:
+                        DeepFace.build_model('Facenet')
+                        self.face_model_name = 'Facenet'
+                        self.feature_dim = 128
+                        print("[WARN] Fallback to Facenet (128D)")
+                    except Exception as e:
+                        print(f"[ERR] DeepFace warmup failed: {e}")
 
                 # Test detector backends in order of preference
                 test_image = np.zeros((224, 224, 3), dtype=np.uint8)
@@ -208,9 +217,9 @@ class BiometricEngine:
                 print(f"[WARN] DeepFace extraction error with {detector}: {e}")
                 continue
         
-        # If all detectors fail, try OpenCV fallback
-        print("[WARN] All DeepFace detectors failed, trying OpenCV fallback...")
-        return self._opencv_facial_features(image_path)
+        # If all detectors fail
+        print("[WARN] Face not detected by any backend")
+        return None
     
     def _opencv_facial_features(self, image_path: str) -> Optional[np.ndarray]:
         """Fallback facial feature extraction using OpenCV with improved preprocessing."""
