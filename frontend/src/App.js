@@ -9,10 +9,6 @@ import Authenticate from "./pages/Authenticate";
 import Dashboard from "./pages/Dashboard";
 import About from "./pages/About";
 import BlockchainExplorer from "./pages/BlockchainExplorer";
-// Advanced Features
-import ZKPAuthentication from "./pages/ZKPAuthentication";
-import MultimodalAuth from "./pages/MultimodalAuth";
-import DAOGovernance from "./pages/DAOGovernance";
 
 // API
 import { getBlockchainStatus } from "./services/api";
@@ -75,28 +71,10 @@ function App() {
               Verify
             </Link>
             <Link
-              to="/zkp-auth"
-              className={`nav-link ${location.pathname === "/zkp-auth" ? "active" : ""}`}
-            >
-              ZKP Auth
-            </Link>
-            <Link
-              to="/multimodal"
-              className={`nav-link ${location.pathname === "/multimodal" ? "active" : ""}`}
-            >
-              Multimodal
-            </Link>
-            <Link
               to="/dashboard"
               className={`nav-link ${location.pathname === "/dashboard" ? "active" : ""}`}
             >
               Dashboard
-            </Link>
-            <Link
-              to="/dao"
-              className={`nav-link ${location.pathname === "/dao" ? "active" : ""}`}
-            >
-              DAO
             </Link>
             <Link
               to="/blockchain"
@@ -129,10 +107,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/enroll" element={<Enroll />} />
           <Route path="/authenticate" element={<Authenticate />} />
-          <Route path="/zkp-auth" element={<ZKPAuthentication />} />
-          <Route path="/multimodal" element={<MultimodalAuth />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dao" element={<DAOGovernance />} />
           <Route path="/blockchain" element={<BlockchainExplorer />} />
           <Route path="/about" element={<About />} />
         </Routes>
