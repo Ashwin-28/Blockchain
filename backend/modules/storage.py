@@ -80,3 +80,19 @@ class StorageClient:
         index[content_hash] = {'size': size, 'created': datetime.now().isoformat()}
         with open(index_path, 'w') as f:
             json.dump(index, f, indent=2)
+
+    def get_features(self, subject_id: str) -> Optional[bytes]:
+        """Retrieve stored features by subject_id (for demo mode)."""
+        import numpy as np
+        # Look for feature file by subject_id
+        features_path = os.path.join(self.local_path, f"{subject_id}_features.npy")
+        if os.path.exists(features_path):
+            return np.load(features_path)
+        return None
+    
+    def save_features(self, subject_id: str, features) -> bool:
+        """Save features by subject_id (for demo mode)."""
+        import numpy as np
+        features_path = os.path.join(self.local_path, f"{subject_id}_features.npy")
+        np.save(features_path, features)
+        return True

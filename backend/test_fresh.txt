@@ -1,0 +1,72 @@
+﻿
+============================================================
+ 1. TESTING HEALTH & STATUS
+============================================================
+Status: 200
+{
+  "blockchain": "connected",
+  "status": "healthy",
+  "timestamp": "2026-01-19T21:01:29.082998",
+  "version": "1.0.0"
+}
+
+============================================================
+ 2. TESTING SUBJECT ENROLLMENT
+============================================================
+Status: 201
+{
+  "biometric_type": "facial",
+  "block_number": 5,
+  "commitment_hash": "8b3da986d0609e5a53f635d277a8d9bddb859c08602e08a04e2955b6f090688d",
+  "delta": "8e2df3aa6253d76924abccdd709293db4d2ad00e97e9312e1cc5a8d5f59155eccc08d84810c853c4c3becc10f1efbdb5ddde0cf944031a362aa00e35037fe9890471848341e69912726fac47b2cc962058a8422e3553090e5211d71ce9a9ffa78a8c92bdc8651ab90ea5e524e68fe0281e3c0fd99bf594ec962e5a2a9bb63ae0",
+  "message": "Subject enrolled successfully on blockchain",
+  "subject_code": "086875",
+  "subject_id": "ebedb4fd77888e184e685359693505736443a542e38620e7c1193e2ae8bc440c",
+  "success": true,
+  "template_cid": "Qmf3d791bf43adcaa5c6ca30d5f340b33484a4181e17b2",
+  "transaction_hash": "9a34d0531f2b32fcd704c0dfe4da3a4a13126ab28656186bac27761d052f4bfb"
+}
+Γ£à Enrollment successful!
+
+============================================================
+ 3. TESTING AUTHENTICATION
+============================================================
+Status: 200
+{
+  "blockchain_warning": null,
+  "confidence": 99.9999995,
+  "logged_on_chain": true,
+  "message": "Verification successful",
+  "subject_id": "ebedb4fd77888e184e685359693505736443a542e38620e7c1193e2ae8bc440c",
+  "success": true
+}
+Γ£à Authentication verified!
+
+============================================================
+ 4. TESTING STATISTICS
+============================================================
+Status: 200
+{
+  "blockchain_auth_records": 1,
+  "blockchain_connected": true,
+  "blockchain_total_nodes": 1,
+  "blockchain_total_subjects": 1,
+  "current_block": 6,
+  "database_connected": true,
+  "models_trained": 1,
+  "successful_authentications": 10,
+  "timestamp": "2026-01-19T21:01:35.673644",
+  "total_authentications": 20,
+  "total_subjects": 33
+}
+
+============================================================
+ 5. LISTING SUBJECTS
+============================================================
+Status: 200
+Total Subjects: 33
+
+============================================================
+ FINAL TEST SUMMARY
+============================================================
+≡ƒÄë ALL SYSTEMS GO! The Biometric Identity system is fully functional.

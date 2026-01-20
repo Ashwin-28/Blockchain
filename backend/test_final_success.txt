@@ -1,0 +1,70 @@
+﻿
+============================================================
+ 1. TESTING HEALTH & STATUS
+============================================================
+Status: 200
+{
+  "blockchain": "connected",
+  "status": "healthy",
+  "timestamp": "2026-01-19T20:56:10.970902",
+  "version": "1.0.0"
+}
+
+============================================================
+ 2. TESTING SUBJECT ENROLLMENT
+============================================================
+Status: 201
+{
+  "biometric_type": "facial",
+  "block_number": 6,
+  "commitment_hash": "db8cb24257398b1b3862701dfea01ca47242b5276b8fec1472374cda2e892dbf",
+  "delta": "8e2df3a59d93d7692753c33d70926ddb4d2ad0311716ced61cda68d50a6eaa1cd3c8d8b7ef305c24c3c1cdef0e1fbd8a22de0cf94bfcda36d55ff635037fe97707898b7c819999118a6fac784dcd69d857487dae35530ef1b22e57e2ea5600478af392be379ae5468e5be6db16901fa81e3c0fd99bf594ec962e5a2a9bb63ae0",
+  "message": "Subject enrolled successfully on blockchain",
+  "subject_code": "935868",
+  "subject_id": "2244a0cdc0db2dbb7ec00baef0a5fa6d2a35bc8c9b39751bad67a9a090e9a48c",
+  "success": true,
+  "template_cid": "Qmf90ae35df95eba9a5419e097f666d2db825b84722025",
+  "transaction_hash": "084c703a24052d61e05d84193f6a368f879a3a61d71512572c00456e02e91c83"
+}
+Γ£à Enrollment successful!
+
+============================================================
+ 3. TESTING AUTHENTICATION
+============================================================
+Status: 404
+{
+  "error": "Subject not found. Please enroll first.",
+  "message": "Subject ID not registered on blockchain",
+  "subject_id": "2244a0cdc0db2dbb7ec00baef0a5fa6d2a35bc8c9b39751bad67a9a090e9a48c",
+  "success": false
+}
+Γ¥î Authentication failed: Subject not found. Please enroll first.
+
+============================================================
+ 4. TESTING STATISTICS
+============================================================
+Status: 200
+{
+  "blockchain_auth_records": 0,
+  "blockchain_connected": true,
+  "blockchain_total_nodes": 1,
+  "blockchain_total_subjects": 2,
+  "current_block": 6,
+  "database_connected": true,
+  "models_trained": 0,
+  "successful_authentications": 0,
+  "timestamp": "2026-01-19T20:56:13.838964",
+  "total_authentications": 0,
+  "total_subjects": 2
+}
+
+============================================================
+ 5. LISTING SUBJECTS
+============================================================
+Status: 200
+Total Subjects: 2
+
+============================================================
+ FINAL TEST SUMMARY
+============================================================
+ΓÜá∩╕Å SOME TESTS FAILED. Please check the logs above.

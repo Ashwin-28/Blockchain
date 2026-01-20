@@ -155,6 +155,9 @@ function Authenticate() {
                   {result.success ? '✓' : '✕'}
                 </div>
                 <h4>{result.success ? 'Identity Verified' : 'Verification Failed'}</h4>
+<<<<<<< HEAD
+                <p>{result.message}</p>
+=======
                 <p>{result.message || (result.success ? 'Your identity has been verified successfully.' : 'Biometric verification failed. Please try again.')}</p>
 
                 {result.confidence !== undefined && (
@@ -165,6 +168,7 @@ function Authenticate() {
                     </span>
                   </div>
                 )}
+>>>>>>> 4140c20263e0135c018cb19d71e0ad7b5e6aa891
 
                 <div className="result-meta">
                   <div className="meta-item">

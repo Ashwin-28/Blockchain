@@ -388,6 +388,9 @@ def enroll_subject():
         # Store on IPFS/local
         template_cid = storage.add(encrypted_template)
         
+        # Also save raw features for demo mode comparison
+        storage.save_features(subject_id, features)
+        
         # Prepare blockchain data
         subject_id_bytes = bytes.fromhex(subject_id)
         commitment_hash = commitment['hash']
@@ -491,6 +494,8 @@ def authenticate_subject():
     subject_id = request.form.get('subject_id', '')
     biometric_type = request.form.get('type', 'facial')
     
+    print(f"DEBUG: Authenticating {subject_id}. Contract Address: '{CONTRACT_ADDRESS}'")
+
     if not subject_id:
         return jsonify({'error': 'Subject ID required'}), 400
     
@@ -521,11 +526,201 @@ def authenticate_subject():
         if w3 and w3.is_connected() and contract:
             try:
                 subject_id_bytes = bytes.fromhex(subject_id)
-                call_params = {}
-                if PRIVATE_KEY:
-                    account = w3.eth.account.from_key(PRIVATE_KEY)
-                    call_params = {'from': account.address}
+<<<<<<< HEAD
                 
+                # Use authorized account for reading
+                sender = get_sender_account()
+=======
+>>>>>>> 4140c20263e0135c018cb19d71e0ad7b5e6aa891
+                call_params = {}
+                if sender:
+                    call_params = {'from': sender}
+                
+<<<<<<< HEAD
+                # Check if subject exists first
+                try:
+                    stored_data = contract.functions.getSubject(subject_id_bytes).call(call_params)
+                except Exception as bc_err:
+                    print(f"❌ Subject not found on blockchain: {subject_id}")
+                    print(f"   Error: {bc_err}")
+                    return jsonify({
+                        'success': False,
+                        'error': 'Subject not found. Please enroll first.',
+                        'subject_id': subject_id,
+                        'message': 'Subject ID not registered on blockchain'
+                    }), 404
+                
+                # Check if subject has valid data
+                if not stored_data[0]:  # isRegistered flag
+                    return jsonify({
+                        'success': False,
+                        'error': 'Subject not registered',
+                        'subject_id': subject_id
+                    }), 404
+                
+                stored_hash = stored_data[1]
+                stored_delta = stored_data[2]
+                template_cid = stored_data[3]  # Get the template CID
+                
+                is_authenticated = False
+                confidence = 0.0
+                verification_method = "none"
+                
+                print(f"📥 Retrieved from blockchain: hash={stored_hash.hex()[:16]}..., delta={len(stored_delta)}B, cid={template_cid}")
+                
+                # ============================================================
+                # VERIFICATION - Direct Feature Comparison (PRIMARY)
+                # ============================================================
+                # For CNN-based features, direct comparison is most reliable.
+                # The encrypted template allows accurate similarity computation.
+                
+                if template_cid:
+                    try:
+                        # Retrieve and decrypt stored template
+                        encrypted_template = storage.get(template_cid)
+                        print(f"📦 Retrieved template from storage: {len(encrypted_template) if encrypted_template else 0}B")
+                        
+                        if encrypted_template:
+                            decrypted_template = encryption.decrypt(encrypted_template)
+                            stored_features = np.frombuffer(decrypted_template, dtype=np.float32)
+                            
+                            print(f"🔓 Decrypted features: shape={stored_features.shape}, new features shape={features.shape}")
+                            
+                            # Compare features directly using cosine similarity
+                            similarity = biometric_engine.compare(features, stored_features)
+                            direct_confidence = similarity * 100.0
+                            
+                            print(f"📊 Direct comparison: similarity={similarity:.4f} ({direct_confidence:.2f}%)")
+                            
+                            # Threshold: 70% similarity for facial recognition (ArcFace)
+                            # This corresponds to Cosine Distance < 0.30
+                            # User specified distance < 0.3, so similarity (1-dist) must be > 0.7
+                            if similarity > 0.70:
+                                is_authenticated = True
+                                confidence = direct_confidence
+                                verification_method = "direct_feature_comparison"
+                            else:
+                                print(f"❌ Similarity {similarity:.4f} below threshold 0.70 (Distance > 0.3)")
+                                # If direct comparison fails, we do NOT fallback to FCS for the same data
+                                # because direct float comparison is more accurate than quantized FCS.
+                                # preventing false positives.
+                                is_authenticated = False
+                    except Exception as e:
+                        print(f"⚠ Direct feature comparison failed: {e}")
+                        import traceback
+                        traceback.print_exc()
+                
+                # ============================================================
+                # VERIFICATION - FCS Check (DISABLED for strict security)
+                # ============================================================
+                # FCS is less accurate than direct float comparison.
+                # We disable it to prevent false positives if direct check fails.
+                # if not is_authenticated and not template_cid and stored_delta:
+                #    pass 
+                
+                print(f"✅ Final Result: authenticated={is_authenticated}, method={verification_method}, confidence={confidence:.2f}%")
+                
+                # Log authentication attempt (Non-blocking)
+                logged_on_chain = False
+                blockchain_warning = None
+                
+                sender = get_sender_account()
+                if sender:
+                    try:
+                        reason = "Verification successful" if is_authenticated else "Biometric mismatch"
+                        
+                        tx_params = {
+                            'from': sender,
+                            'gas': 500000,
+                            'gasPrice': w3.eth.gas_price
+                        }
+                        
+                        if PRIVATE_KEY:
+                            tx_params['nonce'] = w3.eth.get_transaction_count(sender)
+                            tx = contract.functions.logAuthentication(
+                                subject_id_bytes,
+                                is_authenticated,
+                                reason
+                            ).build_transaction(tx_params)
+                            signed_tx = w3.eth.account.sign_transaction(tx, PRIVATE_KEY)
+                            w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+                        else:
+                            # Unlocked Ganache account
+                            contract.functions.logAuthentication(
+                                subject_id_bytes,
+                                is_authenticated,
+                                reason
+                            ).transact(tx_params)
+                        
+                        logged_on_chain = True
+                    except Exception as e:
+                        print(f"⚠ Blockchain logging failed: {e}")
+                        blockchain_warning = str(e)
+                
+                # Log to database
+                db_service.log_authentication(
+                    subject_id=subject_id,
+                    success=is_authenticated,
+                    confidence=confidence,
+                    ip_address=request.remote_addr,
+                    user_agent=request.headers.get('User-Agent', '')[:500],
+                    failure_reason=None if is_authenticated else 'Biometric mismatch'
+                )
+                
+                return jsonify({
+                    'success': is_authenticated,
+                    'confidence': confidence,
+                    'method': verification_method,
+                    'subject_id': subject_id,
+                    'logged_on_chain': logged_on_chain,
+                    'blockchain_warning': blockchain_warning,
+                    'message': 'Verification successful' if is_authenticated else 'Biometric mismatch'
+                })
+                
+            except Exception as e:
+                return jsonify({'error': f'Blockchain error: {str(e)}'}), 500
+        else:
+            # Demo mode (No Blockchain) - Perform local comparison
+            print("⚠ running in DEMO MODE (No Blockchain Configured)")
+            
+            # Retrieve locally stored features (from enrollment in DB/File)
+            # In a real app without blockchain, you'd fetch from sql/mongo.
+            # Here we assume storage.get_features works if implemented, 
+            # or we fail safe.
+            stored_features = storage.get_features(subject_id)
+            
+            demo_authenticated = False
+            demo_confidence = 0.0
+            
+            if stored_features is not None:
+                sim = biometric_engine.compare(features, stored_features)
+                # Same threshold as main logic
+                if sim > 0.70:
+                    demo_authenticated = True
+                    demo_confidence = sim * 100.0
+                print(f"📊 Demo Comparison: similarity={sim:.4f}")
+            else:
+                print("❌ Demo Mode: No stored features found for subject")
+
+            db_service.log_authentication(
+                subject_id=subject_id,
+                success=demo_authenticated,
+                confidence=demo_confidence,
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get('User-Agent', '')[:500],
+                failure_reason=None if demo_authenticated else 'Biometric mismatch (Demo)'
+            )
+            
+            return jsonify({
+                'success': demo_authenticated,
+                'confidence': demo_confidence,
+                'method': 'demo_local_comparison',
+                'subject_id': subject_id,
+                'logged_on_chain': False,
+                'blockchain_warning': 'Demo Mode - No Blockchain Connection',
+                'message': 'Verification successful' if demo_authenticated else 'Biometric mismatch'
+            })
+=======
                 stored_data = contract.functions.getSubject(subject_id_bytes).call(call_params)
                 if stored_data[0]:  # isRegistered
                     stored_hash = stored_data[1]
@@ -674,6 +869,7 @@ def authenticate_subject():
             },
             'message': 'Verification successful' if is_authenticated else 'Biometric mismatch'
         })
+>>>>>>> 4140c20263e0135c018cb19d71e0ad7b5e6aa891
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -884,14 +1080,13 @@ def internal_error(e):
 # ═══════════════════════════════════════════════════════════════════════════
 
 if __name__ == '__main__':
+    # Force UTF-8 encoding for Windows terminal
+    import sys
+    import io
+    if sys.platform == 'win32':
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+        
     init_blockchain()
-    
-    debug = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
-    port = int(os.environ.get('PORT', 5000))
-    
-    print(f"\n{'='*60}")
-    print("  Biometric Identity Verification Backend")
-    print(f"  Running on http://localhost:{port}")
-    print(f"{'='*60}\n")
-    
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    print("🚀 Starting Biometric Identity Backend on http://localhost:5000")
+    app.run(host='0.0.0.0', port=5000, debug=False)
